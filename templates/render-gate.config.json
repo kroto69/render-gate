@@ -1,0 +1,10 @@
+{
+  "entry": "src/index.js",
+  "mode": "strict",
+  "compositions": {},
+  "studio": { "startTimeoutSec": 60 },
+  "kane": { "timeoutSec": 180, "extraArgs": [] },
+  "cache": { "enabled": true, "dir": ".render-gate" },
+  "render": { "command": "npx remotion render", "extraArgs": [] },
+  "loopGuard": { "maxAutoFixAttempts": 3 }
+}

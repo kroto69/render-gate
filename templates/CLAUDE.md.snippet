@@ -1,0 +1,8 @@
+<!-- render-gate:start -->
+## Video rendering rules
+- Never run `remotion render` directly. Always run `npx render-gate render <Composition>`.
+- After editing a composition, asset, or spec, run `npx render-gate check <Composition> --json`.
+- On failure, read `reason`, `stage`, and `evidence`; fix the composition and rerun.
+- Do not render until check passes. Do not loosen specs to make a failing check pass.
+- Creative decisions are yours; gate checks technical preview state only.
+<!-- render-gate:end -->

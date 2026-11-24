@@ -3,13 +3,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import { GateError } from '../errors.js';
 import { checkStatic } from '../checks/static.js';
 import { startStudio, findFreePort } from '../studio.js';
 import { runKane } from '../kane.js';
 import { report, writeSummary } from '../report.js';
 import { register } from '../cleanup.js';
+import { hashInputs, cacheHit, writeCache, updateStats, guardHook, resetHook } from '../cache.js';
 
 function parseArgs(command, args) {
   const options = { strict: true, json: false, hook: false, noCache: false, onlyChanged: false, all: false, verbose: false };
@@ -28,7 +28,6 @@ function parseArgs(command, args) {
     else if (arg.startsWith('-')) throw new GateError(1, `Unknown option: ${arg}`, 'Run render-gate --help.');
     else positional.push(arg);
   }
-  if (options.hook) options.json = true;
   if (command === 'render' && !positional[0]) throw new GateError(1, 'render requires a composition id.', 'Run render-gate render <Composition>.');
   if (command === 'check' && !positional[0] && !options.all) throw new GateError(1, 'check requires a composition id or --all.', 'Run render-gate check <Composition>.');
   options.composition = positional[0];
@@ -86,6 +85,26 @@ async function runOne(command, composition, options, cwd, config, configPath) {
     checkStatic({ root: cwd, config, composition });
     result.stage = 'static';
     result.code = 10;
+    const hash = hashInputs({ root: cwd, composition, config });
+    if (!options.noCache && config.cache?.enabled !== false && cacheHit(cwd, composition, hash)) {
+      result.ok = true;
+      result.code = 0;
+      result.stage = 'cache';
+      result.cached = true;
+      result.reason = 'Unchanged composition already passed; verification skipped.';
+      result.durationMs = Date.now() - start;
+      const stats = updateStats(cwd, composition, { passed: true });
+      result.rendersAvoidedEstimate = stats.rendersAvoidedEstimate;
+      if (command === 'render') {
+        result.stage = 'render';
+        const renderCode = await renderMedia(config, composition, options.out, cwd, options.verbose);
+        if (renderCode !== 0) throw new GateError(15, `Remotion render exited ${renderCode}.`, 'Review render output.');
+        result.rendered = true;
+        result.stage = 'done';
+      }
+      writeSummary(runDir, result);
+      return result;
+    }
     const port = await findFreePort();
     studio = await startStudio({ entry: config.entry, port, runDir, timeoutSec: config.studio?.startTimeoutSec ?? 60, cwd });
     result.stage = 'studio';
@@ -96,10 +115,18 @@ async function runOne(command, composition, options, cwd, config, configPath) {
     result.ok = kane.ok;
     result.reason = kane.reason || (kane.ok ? 'Preview passed.' : 'Kane verification failed without a specific reason.');
     result.evidence = kane.artifacts;
-    if (!result.ok && options.strict && options.hook) {
-      // Hook attempt state is maintained separately in Phase 4 cache module.
-      result.code = 2;
+    writeCache(cwd, composition, hash, result.ok, path.basename(runDir));
+    if (result.ok) resetHook(cwd, composition);
+    if (!result.ok && options.hook) {
+      const hookInput = process.env.RENDER_GATE_HOOK_INPUT ? JSON.parse(process.env.RENDER_GATE_HOOK_INPUT) : {};
+      const guard = guardHook(cwd, composition, hash, result.reason, config.loopGuard?.maxAutoFixAttempts ?? 3, Boolean(hookInput.stop_hook_active));
+      if (guard.giveUp) {
+        result.code = 0;
+        result.reason = `${guard.message}. Last failure: ${result.reason}`;
+      } else result.code = 2;
     }
+    const stats = updateStats(cwd, composition, { passed: result.ok });
+    result.rendersAvoidedEstimate = stats.rendersAvoidedEstimate;
     if (!result.ok && options.strict && command === 'render') {
       result.stage = 'kane-verification';
     } else if (command === 'render') {
@@ -108,10 +135,9 @@ async function runOne(command, composition, options, cwd, config, configPath) {
       const renderCode = await renderMedia(config, composition, options.out, cwd, options.verbose);
       if (renderCode !== 0) throw new GateError(15, `Remotion render exited ${renderCode}.`, 'Review render output and project dependencies.');
       result.rendered = true;
-      result.ok = true;
       result.code = 0;
       result.stage = 'done';
-      result.reason = 'Preview passed and render completed.';
+      result.reason = result.ok ? 'Preview passed and render completed.' : 'Gate failed; render continued because --warn was set.';
     }
   } catch (error) {
     result.ok = false;
@@ -141,7 +167,7 @@ export async function runGateCommand(command, args) {
     report(result, options);
     if (!result.ok) last = result;
     if (!result.ok && options.strict) {
-      if (options.hook) return 2;
+      if (options.hook && result.code !== 0) return 2;
       return result.code;
     }
   }
