@@ -72,14 +72,30 @@ export async function runKane({ url, objective, timeoutSec = 180, runDir, extraA
   child.stdout.on('data', (chunk) => { stdout += chunk; });
   child.stderr.on('data', (chunk) => { stderr += chunk; });
   let timedOut = false;
+  let forceTimer;
   const timer = setTimeout(() => {
     timedOut = true;
     try { process.kill(process.platform === 'win32' ? child.pid : -child.pid, 'SIGTERM'); } catch { /* exited */ }
+    forceTimer = setTimeout(() => {
+      try { process.kill(process.platform === 'win32' ? child.pid : -child.pid, 'SIGKILL'); } catch { /* exited */ }
+    }, 3000);
   }, timeoutSec * 1000);
-  const [code] = await new Promise((resolve, reject) => {
-    child.once('error', reject);
-    child.once('close', (status) => resolve([status]));
-  }).finally(() => clearTimeout(timer));
+  let code;
+  try {
+    code = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', resolve);
+    });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      fs.writeFileSync(rawPath, `Kane CLI not found: ${bin}\\n`);
+      return { ok: false, code: KANE_EXIT_CODES.auth, verdict: 'fail', reason: `Kane CLI not found: ${bin}`, failedStep: null, artifacts: [rawPath], exitCode: null, durationMs: Date.now() - started, rawPath, events: [] };
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    clearTimeout(forceTimer);
+  }
   fs.writeFileSync(rawPath, stdout);
   if (stderr) fs.appendFileSync(rawPath, `\n# stderr\n${stderr}`);
   const parsed = parseNdjson(stdout);

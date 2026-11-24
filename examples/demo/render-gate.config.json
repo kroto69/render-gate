@@ -1,0 +1,22 @@
+{
+  "entry": "src/index.js",
+  "mode": "strict",
+  "compositions": {
+    "PromoVideo": {
+      "spec": "specs/PromoVideo.md",
+      "expect": {
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "durationInSeconds": 15,
+        "audio": false,
+        "assets": ["public/logo.svg"]
+      }
+    }
+  },
+  "studio": { "startTimeoutSec": 60 },
+  "kane": { "timeoutSec": 180, "extraArgs": [] },
+  "cache": { "enabled": true, "dir": ".render-gate" },
+  "render": { "command": "npx remotion render", "extraArgs": [] },
+  "loopGuard": { "maxAutoFixAttempts": 3 }
+}

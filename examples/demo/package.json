@@ -1,0 +1,21 @@
+{
+  "name": "render-gate-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo:break": "node scripts/break.js",
+    "demo:fix": "node scripts/fix.js",
+    "studio": "remotion studio src/index.js --port 43127 --no-open --ipv4",
+    "render": "npx render-gate render PromoVideo",
+    "check": "node ../../bin/render-gate.js check PromoVideo --json",
+    "render-gate": "node ../../bin/render-gate.js render PromoVideo"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.409",
+    "@remotion/google-fonts": "4.0.409",
+    "remotion": "4.0.409",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  }
+}
