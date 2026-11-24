@@ -1,7 +1,7 @@
-// Defines consistent CLI errors and exit codes.
-// Keeps user-facing remediation attached to each expected failure.
+// Defines stable CLI errors and exit codes.
+// Remediation stays with expected failures for concise agent output.
 export class GateError extends Error {
-  constructor(code, message, remediation) {
+  constructor(code, message, remediation = '') {
     super(message);
     this.name = 'GateError';
     this.code = code;

@@ -12,6 +12,7 @@
     "templates/",
     "docs/",
     "README.md",
+    "AGENTS.md",
     "LICENSE"
   ],
   "engines": {
