@@ -3,6 +3,7 @@
 import { GateError } from './errors.js';
 import { runGateCommand } from './commands/render.js';
 import { initCommand, addCommand } from './commands/init.js';
+import { startStudio } from './studio.js';
 
 export const VERSION = '0.1.0';
 export const USAGE = `render-gate <command> [options]
@@ -28,6 +29,12 @@ Options (check/render):
 
 export async function dispatch(args) {
   const [command, ...rest] = args;
+  if (command === '_studio-only' && process.env.RENDER_GATE_TEST_MODE === '1') {
+    const port = Number(rest[rest.indexOf('--port') + 1]);
+    const studio = await startStudio({ entry: 'entry.js', port, runDir: '.render-gate/test-studio', timeoutSec: 10 });
+    process.stdout.write(`${studio.url}\n`);
+    await new Promise(() => {});
+  }
   if (!command || command === '--help' || command === '-h') {
     process.stdout.write(`${USAGE}\n`);
     return 0;
