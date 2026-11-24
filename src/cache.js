@@ -70,6 +70,15 @@ export function updateStats(root, composition, { passed, rendered = false }) {
   return stats;
 }
 
+export function markRendered(root, composition) {
+  const file = path.resolve(root, '.render-gate/stats.json');
+  const stats = readJson(file, { gateRuns: 0, passes: 0, failures: 0, rendersAvoidedEstimate: 0, sinceLastRenderFailures: {} });
+  stats.sinceLastRenderFailures[composition] = 0;
+  stats.rendersAvoidedEstimate = Object.values(stats.sinceLastRenderFailures).reduce((sum, value) => sum + value, 0);
+  atomicJson(file, stats);
+  return stats;
+}
+
 export function guardHook(root, composition, hash, reason, maxAttempts = 3, continuationActive = false) {
   const file = path.resolve(root, '.render-gate/state.json');
   const state = readJson(file, { attempts: {} });

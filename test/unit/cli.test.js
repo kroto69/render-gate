@@ -15,3 +15,9 @@ test('help and version are available', () => {
   assert.equal(version.status, 0);
   assert.match(version.stdout, /^\d+\.\d+\.\d+/);
 });
+
+test('CLI reports unexpected commands and unknown options with usage code', () => {
+  const unknown = spawnSync(process.execPath, [cli, 'does-not-exist'], { encoding: 'utf8' });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /Unknown command/);
+});

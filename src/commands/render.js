@@ -9,7 +9,7 @@ import { startStudio, findFreePort } from '../studio.js';
 import { runKane } from '../kane.js';
 import { report, writeSummary } from '../report.js';
 import { register } from '../cleanup.js';
-import { hashInputs, cacheHit, writeCache, updateStats, guardHook, resetHook } from '../cache.js';
+import { hashInputs, cacheHit, writeCache, updateStats, markRendered, guardHook, resetHook } from '../cache.js';
 
 function parseArgs(command, args) {
   const options = { strict: true, json: false, hook: false, noCache: false, onlyChanged: false, all: false, verbose: false };
@@ -109,6 +109,8 @@ async function runOne(command, composition, options, cwd, config, configPath) {
         if (renderCode !== 0) throw new GateError(15, `Remotion render exited ${renderCode}.`, 'Review render output.');
         result.rendered = true;
         result.stage = 'done';
+        const stats = markRendered(cwd, composition);
+        result.rendersAvoidedEstimate = stats.rendersAvoidedEstimate;
       }
       writeSummary(runDir, result);
       return result;
@@ -146,6 +148,8 @@ async function runOne(command, composition, options, cwd, config, configPath) {
       const renderCode = await renderMedia(config, composition, options.out, cwd, options.verbose);
       if (renderCode !== 0) throw new GateError(15, `Remotion render exited ${renderCode}.`, 'Review render output and project dependencies.');
       result.rendered = true;
+      const renderedStats = markRendered(cwd, composition);
+      result.rendersAvoidedEstimate = renderedStats.rendersAvoidedEstimate;
       result.code = 0;
       result.stage = 'done';
       result.reason = result.ok ? 'Preview passed and render completed.' : 'Gate failed; render continued because --warn was set.';
