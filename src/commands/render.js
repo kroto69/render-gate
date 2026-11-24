@@ -119,7 +119,8 @@ async function runOne(command, composition, options, cwd, config, configPath) {
     if (result.ok) resetHook(cwd, composition);
     if (!result.ok && options.hook) {
       const hookInput = process.env.RENDER_GATE_HOOK_INPUT ? JSON.parse(process.env.RENDER_GATE_HOOK_INPUT) : {};
-      const guard = guardHook(cwd, composition, hash, result.reason, config.loopGuard?.maxAutoFixAttempts ?? 3, Boolean(hookInput.stop_hook_active));
+      const continuationActive = hookInput.stop_hook_active === true || hookInput.continuation_active === true;
+      const guard = guardHook(cwd, composition, hash, result.reason, config.loopGuard?.maxAutoFixAttempts ?? 3, continuationActive);
       if (guard.giveUp) {
         result.code = 0;
         result.reason = `${guard.message}. Last failure: ${result.reason}`;
@@ -140,12 +141,12 @@ async function runOne(command, composition, options, cwd, config, configPath) {
       result.reason = result.ok ? 'Preview passed and render completed.' : 'Gate failed; render continued because --warn was set.';
     }
   } catch (error) {
+    if (error instanceof GateError && error.code === 1) throw error;
     result.ok = false;
     result.code = error.code ?? 14;
     result.stage = result.code === 10 ? 'static' : result.code === 14 ? 'studio' : result.code === 15 ? 'render' : 'config';
     result.reason = error.message;
     if (error.remediation) result.reason += ` ${error.remediation}`;
-    if (error.code === 1) throw error;
   } finally {
     await studio?.stop();
   }
@@ -167,7 +168,7 @@ export async function runGateCommand(command, args) {
     report(result, options);
     if (!result.ok) last = result;
     if (!result.ok && options.strict) {
-      if (options.hook && result.code !== 0) return 2;
+      if (options.hook && result.code === 2) return 2;
       return result.code;
     }
   }

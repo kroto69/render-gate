@@ -1,28 +1,26 @@
-# T1 verification notes
+# Verification and unresolved vendor contract
 
-Checked 24 Nov 2026 on Linux x86_64. Commands below are observations on this machine; Kane behavior can vary by CLI version/account.
+This build intentionally performs **no real Kane runs**. User-confirmed facts only:
 
 | Item | Value | Source | Status |
 |---|---|---|---|
-| Kane installation | `kane-cli` already installed; `kane-cli --version` → `0.10.8`. `npm i -g @testmuai/kane-cli` failed `EACCES` replacing `/usr/lib/node_modules/@testmuai/kane-cli`; no elevated install attempted. | Command output, 2026-11-24 | VERIFIED (installed executable); install command blocked |
-| Authentication | `kane-cli whoami` → Authenticated; OAuth profile `jarot`, prod; `kane-cli balance` → 11200 credits. No login needed. | Real command output | VERIFIED |
-| Browser requirement / Brave workaround | Kane tried `/usr/bin/google-chrome`; initially absent and exited 2 with: `Google Chrome is required but was not found at /usr/bin/google-chrome.` Human provided symlink `/usr/bin/google-chrome -> /usr/bin/brave`; `Brave Browser 157.1.99.57`. Subsequent real public URL and localhost runs succeeded using Kane CLI. | `/usr/bin/google-chrome --version`; real run stdout/stderr | VERIFIED; Brave works for tested runs |
-| Kane invocation | `kane-cli run --agent --headless --timeout 180 --url <URL> '<objective>'`. `--url`, `--headless`, `--timeout <seconds>`, `--agent` confirmed by `kane-cli run --help`. No `--agent` requirement for headless; used explicitly. | `kane-cli run --help`, public runs | VERIFIED |
-| Kane `--agent` NDJSON contract | Observed event objects include `type: stream_start` (`cli_version`, `surface`, `pid`, `v`, `ts`); `type: recording_state`; progress `{step,status,remark,v,ts}`; `type: coverage`; final `type: run_end` with `status`, `summary`, `one_liner`, `final_state`, `reason`, `duration`, `total_runs`, `context`, `variables`, `run_dir`, `result_code`, `reason_code`, optional `verdict`, `test_url`, `coverage`, `v`, `ts`. Keep raw output; schema is versioned/observed, not guaranteed exhaustive. | `test/fixtures/kane-pass.ndjson`, `test/fixtures/kane-fail.ndjson`; vendor Agents docs | VERIFIED (captured examples) |
-| Kane exit codes | Public pass exited `0`; objective-false run exited `1`. Vendor running-tests docs: `0` passed; `1` failed (or upload failed); `2` error (auth/TMS/config/Chrome/unknown); `3` cancelled or `--timeout`. Mapping differs from old PRD hypothesis only in documented nuance: code 1 includes upload failures. | Captured runs; https://github.com/LambdaTest/kane-cli/blob/main/docs/user-guide/running-tests.md | VERIFIED |
-| Kane evidence | Run emits `.evidence` pack path in `coverage.pack`, `session_dir`, `run_dir`; stderr says `evidence: view locally with kane-cli evidence serve <path>`. Output did not provide a direct screenshot filename/path in final `run_end`. | Captured fixture stdout/stderr; Kane docs | VERIFIED for runs; specific screenshot extraction UNVERIFIED |
-| Localhost reachability | Started Remotion Studio on port 43127; Kane run to `http://localhost:43127` exited 0 and reported visible Studio UI/preview. | Real Studio log and `/tmp/kane-local.ndjson` output | VERIFIED |
-| Remotion Studio flags | `npx remotion studio <entry-point>?`; `--port <value>` and `--no-open` confirmed by real `npx remotion studio --help` from generated Remotion project; started successfully using `npx remotion studio src/index.js --port 43127 --no-open --ipv4`. | `/tmp/render-gate-remotion`; official https://www.remotion.dev/docs/cli/studio | VERIFIED |
-| Remotion render argument order | `remotion render [<entry-point|serve-url>] [<composition-id>] [<output-location>]`. | Real `npx remotion render --help` from generated project; https://www.remotion.dev/docs/cli/render | VERIFIED |
-| Remotion metadata APIs | Current docs page confirms `bundle()` in `@remotion/bundler` and `entryPoint`; `getCompositions` API signature was not confirmed (requested docs URL 404). | https://www.remotion.dev/docs/bundle; attempted https://www.remotion.dev/docs/getcompositions → 404 | UNVERIFIED |
-| Claude Code hook event | `Stop` is event for end of assistant turn; `Stop` hook can add context at end and conversation continues so Claude can act on feedback. | https://docs.anthropic.com/en/docs/claude-code/hooks | VERIFIED |
-| Claude Code hook config / input | Shareable project config: `.claude/settings.json`. Command hooks receive event JSON on stdin including common fields such as `session_id`, `transcript_path`, `cwd`, `hook_event_name`; Stop input includes `last_assistant_message`. | https://docs.anthropic.com/en/docs/claude-code/hooks | VERIFIED |
-| Claude Code hook failure semantics | Current docs: exit code 2 blocks for some events; per-event semantics vary. Stop supports JSON decision control; did not independently extract/verify the exact Stop response schema/exit-code behavior for feedback continuation. PRD's simple “exit 2 feeds stderr back and continues” is not safe to assume. | https://docs.anthropic.com/en/docs/claude-code/hooks | PARTLY VERIFIED; exact Stop response contract UNVERIFIED |
-| Claude Code loop guard payload | Current hook docs examined; no PRD-assumed continuation-already-active payload field confirmed. | https://docs.anthropic.com/en/docs/claude-code/hooks | UNVERIFIED |
-| Hackathon submission | Official page says submission requires five items: GitHub URL, About your app, demo video (YouTube, about 3–5 minutes), two public posts, and agent used. Public repo required. Deadline: 26 Nov 11:59 PM IST. | https://www.kaneclihack.sh/ | VERIFIED |
+| Node target | Node >= 18 | PRD.md | Specified |
+| Remotion Studio flags | `--port`, `--no-open`, `--ipv4` | User confirmation | VERIFIED for this task |
+| Linux browser path | `/usr/bin/google-chrome` is a symlink to Brave | User confirmation | VERIFIED for this task |
+| Kane binary name/default | `kane-cli` | Existing project spec; not re-tested | UNVERIFIED (`src/kane.js`) |
+| Kane invocation flags and argument order | All invocation details are provisional constants in `src/kane.js` | No real run permitted | UNVERIFIED (`src/kane.js`) |
+| Kane NDJSON event/schema | Parser tolerates malformed, partial, unknown records; terminal event convention remains provisional | Historical fixtures are examples only, not this build's verification | UNVERIFIED (`src/kane.js`) |
+| Kane process exit codes | Mapping is provisional and must be confirmed before real use | No real run permitted | UNVERIFIED (`src/kane.js`) |
+| Kane artifact/screenshot fields | Parser extracts a narrow set of string file paths from provisional final event | No real run permitted | UNVERIFIED (`src/kane.js`) |
+| Claude Code hook | Stop hook template present; exact semantics not verified for this build | No hook execution permitted | UNVERIFIED (`templates/claude-hook.json`) |
+| Remotion metadata API | Gate currently checks assets and audio reference; composition metadata extraction not implemented | `PRD.md` marks API assumptions unverified | UNVERIFIED |
+| External dependencies | None added to render-gate; built-in Node modules only | `package.json` | VERIFIED |
 
-## Captured real Kane results
+## Explicit verification backlog
 
-- Pass: `kane-cli run --agent --headless --timeout 180 --url https://example.com 'Open this URL and verify that the webpage loads successfully. Pass if it is loaded; fail only if the browser shows a network or navigation error.'` → exit 0; `run_end.status=passed`.
-- Fail: `kane-cli run --agent --headless --timeout 180 --url https://example.com 'Open this URL and verify that the webpage displays the heading "Definitely Absent Render Gate Marker 9ZQ". Fail if that exact heading is not visible and state the heading or visible page content observed.'` → exit 1; `run_end.status=failed`.
-- Local: Remotion Studio at `http://localhost:43127`; Kane objective verifying Studio interface/preview → exit 0; `run_end.status=passed`.
+- `src/kane.js`: confirm executable name, invocation flags, URL and objective argument positions, terminal event and fields, exit-code mapping, and evidence path semantics using official Kane docs or a real run. Do not remove `// TODO(verify)` markers until confirmed.
+- `src/checks/static.js`: confirm Remotion `bundle()` / `getCompositions()` signatures and resolve packages from the user's project before relying on metadata checks.
+- `templates/claude-hook.json`: confirm current Stop hook JSON configuration, stdin payload, continuation guard field, and exact feedback/exit semantics. If those semantics differ, use documented behavior or manual re-prompt; never claim an automatic loop until verified.
+- `examples/demo`: do not claim real Studio/Kane/render end-to-end verification. Build tests use fake processes only.
+
+Historical raw fixture files from earlier exploration remain under `test/fixtures/`; their presence is not a claim that the current Kane contract is verified. `npm test` uses only fake Kane and never spends credits.

@@ -25,14 +25,15 @@ export function checkStatic({ root = process.cwd(), config, composition }) {
   const missing = [];
   for (const asset of item.expect?.assets ?? []) {
     const relative = asset.startsWith('public/') ? asset : path.join('public', asset);
-    if (!fs.existsSync(path.resolve(root, relative))) missing.push(relative);
+    const resolved = path.resolve(root, relative);
+    if (!resolved.startsWith(`${path.resolve(root)}${path.sep}`) || !fs.existsSync(resolved)) missing.push(relative);
   }
   const srcRoot = path.resolve(root, 'src');
   for (const file of sourceFiles(srcRoot)) {
     const source = fs.readFileSync(file, 'utf8');
     for (const asset of literalAssets(source)) {
       const full = path.resolve(root, 'public', asset);
-      if (!fs.existsSync(full)) missing.push(path.relative(root, full));
+      if (!full.startsWith(`${path.resolve(root, 'public')}${path.sep}`) || !fs.existsSync(full)) missing.push(path.relative(root, full));
     }
   }
   if (item.expect?.audio) {

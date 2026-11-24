@@ -25,5 +25,6 @@ test('cache records only passing hashes and hook guard stops at configured limit
   assert.equal(guardHook(root, 'X', 'abc', 'broken', 3).giveUp, false);
   assert.equal(guardHook(root, 'X', 'abc', 'broken', 3).giveUp, false);
   assert.equal(guardHook(root, 'X', 'abc', 'broken', 3).giveUp, true);
+  assert.equal(guardHook(root, 'X', 'different', 'broken', 3).giveUp, false);
   fs.rmSync(root, { recursive: true, force: true });
 });

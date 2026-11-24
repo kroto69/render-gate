@@ -13,8 +13,14 @@ function walk(dir) {
 }
 
 export function hashInputs({ root = process.cwd(), composition, config, version = '0.1.0' }) {
+  const source = walk(path.resolve(root, 'src'));
+  const referenced = source.flatMap((file) => {
+    const text = fs.readFileSync(file, 'utf8');
+    return [...text.matchAll(/staticFile\(\s*(['\"])([^'\"]+)\1\s*\)/g)].map((match) => path.resolve(root, 'public', match[2]));
+  });
   const files = [
-    ...walk(path.resolve(root, 'src')),
+    ...source,
+    ...referenced,
     ...(config.compositions[composition].expect?.assets ?? []).map((asset) => path.resolve(root, asset.startsWith('public/') ? asset : path.join('public', asset))),
     ...(config.compositions[composition].spec ? [path.resolve(root, config.compositions[composition].spec)] : []),
     path.resolve(root, 'render-gate.config.json'),
@@ -67,7 +73,7 @@ export function updateStats(root, composition, { passed, rendered = false }) {
 export function guardHook(root, composition, hash, reason, maxAttempts = 3, continuationActive = false) {
   const file = path.resolve(root, '.render-gate/state.json');
   const state = readJson(file, { attempts: {} });
-  const key = crypto.createHash('sha256').update(`${composition}\0${hash}\0${reason}`).digest('hex');
+  const key = `${composition}:${crypto.createHash('sha256').update(`${hash}\0${reason}`).digest('hex')}`;
   const attempts = (state.attempts[key] ?? 0) + 1;
   if (attempts >= maxAttempts || continuationActive) {
     return { giveUp: true, attempts: state.attempts[key] ?? maxAttempts, message: `render-gate: giving up after ${maxAttempts} attempts; human review needed` };
@@ -83,7 +89,8 @@ export function resetHook(root, composition) {
   for (const key of Object.keys(state.attempts)) {
     if (key.startsWith(`${composition}:`)) delete state.attempts[key];
   }
-  // Hash-derived keys cannot be reversed; clear state on pass to avoid stale loops.
-  state.attempts = {};
+  for (const key of Object.keys(state.attempts)) {
+    if (key.startsWith(`${composition}:`)) delete state.attempts[key];
+  }
   atomicJson(file, state);
 }
