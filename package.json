@@ -1,0 +1,23 @@
+{
+  "name": "render-gate",
+  "version": "0.1.0",
+  "description": "Verify Remotion Studio previews with Kane before rendering.",
+  "type": "module",
+  "bin": {
+    "render-gate": "bin/render-gate.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
