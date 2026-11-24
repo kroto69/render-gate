@@ -58,8 +58,13 @@ export async function initCommand(args) {
   const hookTemplate = JSON.parse(fs.readFileSync(path.join(templates, 'claude-hook.json'), 'utf8'));
   const settingsPath = path.join(cwd, '.claude/settings.json');
   const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')) : {};
-  const mergedHooks = { ...(settings.hooks ?? {}), ...hookTemplate.hooks };
-  applyFile(changes, settingsPath, `${JSON.stringify({ ...settings, hooks: mergedHooks }, null, 2)}\n`);
+  const hooks = { ...(settings.hooks ?? {}) };
+  for (const [event, entries] of Object.entries(hookTemplate.hooks)) {
+    const existingEntries = Array.isArray(hooks[event]) ? hooks[event] : [];
+    const filtered = existingEntries.filter((entry) => !JSON.stringify(entry).includes('render-gate check --all --only-changed --hook'));
+    hooks[event] = [...filtered, ...entries];
+  }
+  applyFile(changes, settingsPath, `${JSON.stringify({ ...settings, hooks }, null, 2)}\n`);
   const pkgPath = path.join(cwd, 'package.json');
   if (fs.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));

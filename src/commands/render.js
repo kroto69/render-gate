@@ -50,14 +50,14 @@ function objectiveFor(root, config, composition) {
   const expect = item.expect ?? {};
   const spec = item.spec && fs.existsSync(path.resolve(root, item.spec)) ? fs.readFileSync(path.resolve(root, item.spec), 'utf8') : '';
   const templatePath = path.resolve(root, 'specs/default.md');
-  const template = fs.existsSync(templatePath) ? fs.readFileSync(templatePath, 'utf8') : `Verify Remotion Studio preview for ${composition}. Confirm composition selected, no error overlay, canvas nonblank, images visible, and captions inside canvas. Fail with specific observation.`;
+  const template = fs.existsSync(templatePath) ? fs.readFileSync(templatePath, 'utf8') : `Verify Remotion Studio preview for ${composition}. Confirm composition selected, no error overlay, canvas nonblank, images visible, and captions inside canvas. Fail with specific observation.\n{{EXTRA_CHECKS}}`;
   return template
     .replaceAll('{{COMPOSITION_ID}}', composition)
     .replaceAll('{{WIDTH}}', String(expect.width ?? 'configured'))
     .replaceAll('{{HEIGHT}}', String(expect.height ?? 'configured'))
     .replaceAll('{{DURATION_SECONDS}}', String(expect.durationInSeconds ?? 'configured'))
     .replaceAll('{{FPS}}', String(expect.fps ?? 'configured'))
-    .replaceAll('{{EXTRA_CHECKS}}', spec.replace(/^#.*$/gm, '').trim());
+    .replaceAll('{{EXTRA_CHECKS}}', spec.replace(/^#.*$/gm, '').trim() || '');
 }
 
 async function renderMedia(config, composition, output, cwd, verbose) {
