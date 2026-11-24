@@ -11,13 +11,13 @@ const cli = path.join(root, 'bin/render-gate.js');
 const fake = path.join(root, 'test/stubs/fake-kane.js');
 const studio = path.join(root, 'scripts/studio-stub.js');
 
-function project() {
+function project({ assets = [] } = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'render-gate-flow-'));
   fs.mkdirSync(path.join(cwd, 'src'));
   fs.mkdirSync(path.join(cwd, 'public'));
   fs.writeFileSync(path.join(cwd, 'src', 'index.js'), 'export const entry = true;');
   fs.writeFileSync(path.join(cwd, 'render-gate.config.json'), JSON.stringify({
-    entry: 'src/index.js', compositions: { Test: { expect: {} } }, cache: { enabled: false },
+    entry: 'src/index.js', compositions: { Test: { expect: { assets } } }, cache: { enabled: false },
     studio: { startTimeoutSec: 5 }, kane: { timeoutSec: 2 },
     render: { command: `${process.execPath} ${path.join(cwd, 'spy.js')}` },
   }));
@@ -42,11 +42,20 @@ test('strict failed gate never starts render command', () => {
   fs.rmSync(cwd, { recursive: true, force: true });
 });
 
-test('warn mode proceeds to render after failed gate', () => {
+test('warn mode proceeds to render after failed Kane gate', () => {
   const cwd = project();
   const result = invoke(cwd, 'fail', 'render', ['--warn']);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.existsSync(path.join(cwd, 'render-called')), true, `${result.stdout}\n${result.stderr}`);
+  fs.rmSync(cwd, { recursive: true, force: true });
+});
+
+test('warn mode proceeds to render after static failure', () => {
+  const cwd = project({ assets: ['public/missing.png'] });
+  const result = invoke(cwd, 'pass', 'render', ['--warn']);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.equal(fs.existsSync(path.join(cwd, 'render-called')), true);
+  assert.equal(fs.existsSync(path.join(cwd, '.render-gate/runs')), true);
   fs.rmSync(cwd, { recursive: true, force: true });
 });
 

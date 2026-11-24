@@ -82,9 +82,17 @@ async function runOne(command, composition, options, cwd, config, configPath) {
   const result = { composition, ok: false, stage: 'config', code: 1, reason: '', evidence: [], cached: false, rendered: false, durationMs: 0, rendersAvoidedEstimate: 0 };
   let studio;
   try {
-    checkStatic({ root: cwd, config, composition });
-    result.stage = 'static';
-    result.code = 10;
+    try {
+      checkStatic({ root: cwd, config, composition });
+      result.stage = 'static';
+      result.code = 10;
+    } catch (error) {
+      if (error.code !== 10 || options.strict) throw error;
+      result.stage = 'static';
+      result.code = 10;
+      result.reason = error.message;
+      result.ok = false;
+    }
     const hash = hashInputs({ root: cwd, composition, config });
     if (!options.noCache && config.cache?.enabled !== false && cacheHit(cwd, composition, hash)) {
       result.ok = true;
@@ -105,19 +113,21 @@ async function runOne(command, composition, options, cwd, config, configPath) {
       writeSummary(runDir, result);
       return result;
     }
-    const port = await findFreePort();
-    studio = await startStudio({ entry: config.entry, port, runDir, timeoutSec: config.studio?.startTimeoutSec ?? 60, cwd });
-    result.stage = 'studio';
-    result.code = 14;
-    const kane = await runKane({ url: `${studio.url}/${encodeURIComponent(composition)}`, objective: objectiveFor(cwd, config, composition), timeoutSec: config.kane?.timeoutSec ?? 180, runDir, extraArgs: config.kane?.extraArgs ?? [] });
-    result.stage = 'kane-verification';
-    result.code = kane.code;
-    result.ok = kane.ok;
-    result.reason = kane.reason || (kane.ok ? 'Preview passed.' : 'Kane verification failed without a specific reason.');
-    result.evidence = kane.artifacts;
-    writeCache(cwd, composition, hash, result.ok, path.basename(runDir));
-    if (result.ok) resetHook(cwd, composition);
-    if (!result.ok && options.hook) {
+    if (!result.reason) {
+      const port = await findFreePort();
+      studio = await startStudio({ entry: config.entry, port, runDir, timeoutSec: config.studio?.startTimeoutSec ?? 60, cwd });
+      result.stage = 'studio';
+      result.code = 14;
+      const kane = await runKane({ url: `${studio.url}/${encodeURIComponent(composition)}`, objective: objectiveFor(cwd, config, composition), timeoutSec: config.kane?.timeoutSec ?? 180, runDir, extraArgs: config.kane?.extraArgs ?? [] });
+      result.stage = 'kane-verification';
+      result.code = kane.code;
+      result.ok = kane.ok;
+      result.reason = kane.reason || (kane.ok ? 'Preview passed.' : 'Kane verification failed without a specific reason.');
+      result.evidence = kane.artifacts;
+      writeCache(cwd, composition, hash, result.ok, path.basename(runDir));
+      if (result.ok) resetHook(cwd, composition);
+    }
+    if (!result.ok && options.hook && result.stage === 'kane-verification') {
       const hookInput = process.env.RENDER_GATE_HOOK_INPUT ? JSON.parse(process.env.RENDER_GATE_HOOK_INPUT) : {};
       const continuationActive = hookInput.stop_hook_active === true || hookInput.continuation_active === true;
       const guard = guardHook(cwd, composition, hash, result.reason, config.loopGuard?.maxAutoFixAttempts ?? 3, continuationActive);
@@ -129,7 +139,7 @@ async function runOne(command, composition, options, cwd, config, configPath) {
     const stats = updateStats(cwd, composition, { passed: result.ok });
     result.rendersAvoidedEstimate = stats.rendersAvoidedEstimate;
     if (!result.ok && options.strict && command === 'render') {
-      result.stage = 'kane-verification';
+      result.stage = result.stage === 'static' ? 'static' : 'kane-verification';
     } else if (command === 'render') {
       result.stage = 'render';
       result.code = 15;

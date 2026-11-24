@@ -26,9 +26,9 @@ From your Remotion project:
 
 ```sh
 npx github:kroto69/render-gate init --yes
-npx render-gate add PromoVideo --width 1080 --height 1920 --fps 30 --seconds 15
-npx render-gate check PromoVideo --json
-npx render-gate render PromoVideo
+npx github:kroto69/render-gate add PromoVideo --width 1080 --height 1920 --fps 30 --seconds 15
+npx github:kroto69/render-gate check PromoVideo --json
+npx github:kroto69/render-gate render PromoVideo
 ```
 
 For a project already configured, omit `add`. Check result must show `"ok":true` before render. `init` installs config, spec template, agent instructions, hook, and `render` npm script; it does not install dependencies or run postinstall scripts.
